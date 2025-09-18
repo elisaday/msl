@@ -1,0 +1,61 @@
+
+def make_tree(item, depth) {
+    if (depth > 0) {
+        item2 = 2 * item;
+        depth -= 1;
+        return [item, make_tree(item2 - 1, depth), make_tree(item2, depth)];
+    }
+    else
+        return [item, none, none];
+}
+
+def check_tree(tree) {
+    if (tree[1]) {
+        return tree[0] + check_tree(tree[1]) - check_tree(tree[2]);
+    }
+    else {
+        return tree[0];
+    }
+}
+        
+def main() {
+    min_depth = 3;
+    max_depth = 12;
+    stretch_depth = max_depth + 1;
+    
+    ret = check_tree(make_tree(0, stretch_depth));
+    print("stretch tree of depth ");
+    print(stretch_depth);
+    print("\t check: ");
+    println(ret);
+    
+    long_lived_tree = make_tree(0, max_depth);
+    
+    depth = min_depth;
+    while (depth < stretch_depth) {
+        iterations = 2 ^ (max_depth - depth + min_depth);
+        check = 0;
+        i = 1;
+        while (i < iterations + 1) {
+            check += check_tree(make_tree(i, depth)) + check_tree(make_tree(-i, depth));
+            i += 1;
+        }
+            
+        print(2 * iterations);
+        print("\t trees of depth ");
+        print(depth);
+        print("\t check: ");
+        println(check);
+        
+        depth += 2;
+    }
+    
+    print("long lived tree of depth ");
+    print(max_depth);
+    print("\t check: ");
+    println(check_tree(long_lived_tree));
+}
+
+t = tick();
+main();
+println(tick() - t);

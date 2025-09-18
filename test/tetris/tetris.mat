@@ -1,0 +1,466 @@
+import "libwin32" as win32;
+import "libmath" as math;
+import "..\\..\\std\\windows" as WIN;
+
+SCREEN_WIDTH = 310;
+SCREEN_HEIGHT = 555;
+
+g_hWnd = 0;
+g_MainDC = 0;
+g_BackBufferDC = 0;
+g_BackBuffer = 0;
+g_BlackBrush = 0;
+g_BlueBrush = 0;
+g_WhiteBrush = 0;
+g_XBrush = 0;
+g_RedBrush = 0;
+g_NormalFont = 0;
+g_BigFont = 0;
+
+g_RotX =[
+    [   [1,0,-1,-1],   [1,0,-1,1],      [-1,0,1,1],     [-1,0,1,-1]  ],
+    [   [2,1,0,-1],    [0,1,2,1],       [-2,-1,0,1],    [0,-1,-2,-1] ],
+    [   [1,0,-1,0],    [-1,0,1,2],      [-1,0,1,0],     [1,0,-1,-2]  ],
+    [   [1,0,-1,-2],   [-1,0,1,2],      [1,0,-1,-2],    [-1,0,1,2]   ],
+    [   [1,0,1,0],     [-1,0,-1,0],     [1,0,1,0],      [-1,0,-1,0]  ],
+    [   [0,0,0,0],     [0,0,0,0],       [0,0,0,0],      [0,0,0,0]    ],
+    [   [2,1,0,-1],    [-2,-1,0,1],     [2,1,0,-1],     [-2,-1,0,1]  ]];
+
+g_RotY = [ 
+    [   [-1,0,1,-1],    [1,0,-1,-1],    [1,0,-1,1],     [-1,0,1,1]  ],
+    [   [1,0,-1,0],     [1,0,-1,-2],    [0,1,2,1],      [-2,-1,0,1] ],
+    [   [2,1,0,-1],     [0,-1,-2,-1],   [-1,0,1,2],     [-1,0,1,0]  ],
+    [   [1,0,1,0],      [-1,0,-1,0],    [1,0,1,0],      [-1,0,-1,0] ],
+    [   [1,0,-1,-2],    [-1,0,1,2],     [1,0,-1,-2],    [-1,0,1,2]  ],
+    [   [0,0,0,0],      [0,0,0,0],      [0,0,0,0],      [0,0,0,0]   ],
+    [   [2,1,0,-1],     [-2,-1,0,1],    [2,1,0,-1],     [-2,-1,0,1] ]];
+    
+g_GameLevel = 0;
+g_GameScore = 0;
+
+g_BoardWidth = 15;
+g_BoardHeight = 25;
+
+g_Board = None;
+g_Box = [ [0, 0], [0, 0], [0, 0], [0, 0] ];
+
+g_BoxType = 0;
+g_BoxState = 0;
+
+g_Speed = 300;
+
+g_PauseGame = 0;
+
+WM_DESTROY = 2;
+
+def NewGame() {
+    y = 0;
+    g_Board = [none] * g_BoardHeight;
+    while (y < g_BoardHeight) {
+        g_Board[y] = [none] * g_BoardWidth;
+        y += 1;
+    }
+}
+
+def DeleteLine(i) {
+    while (i > 0) {
+        Line = g_Board[i];
+        LineUp = g_Board[i - 1];
+        x = 0;
+        while (x < g_BoardWidth) {
+            Line[x] = LineUp[x];
+            x += 1;
+        }
+
+        i -= 1;
+    }
+
+    x = 0;
+    Line = g_Board[0];
+    while (x < g_BoardWidth) {
+        Line[x] = none;
+        x += 1;
+    }
+}
+
+def CheckFull() {
+    i = 0;
+    while (i < g_BoardHeight) {
+        Line = g_Board[i];
+        Full = 1;
+        x = 0;
+        while (x < g_BoardWidth) {
+            if (Line[x] == none) {
+                Full = none;
+                break;
+            }
+            
+            x += 1;
+        }
+        
+        if (Full) {
+            DeleteLine(i);
+            g_Speed = g_Speed - 10;
+            if (g_Speed < 150)
+                g_Speed = 150;
+        }
+            
+        i += 1;
+    }
+}
+
+def CreateBox() {
+    g_BoxType = math:randint(0, 6);
+    g_BoxState = 0;
+    if (g_BoxType == 0) {
+        g_Box[0] = [6, 0];
+        g_Box[1] = [7, 0];
+        g_Box[2] = [8, 0];
+        g_Box[3] = [7, 1];
+    }
+    elif (g_BoxType == 1) {
+        g_Box[0] = [6, 0];
+        g_Box[1] = [6, 1];
+        g_Box[2] = [6, 2];
+        g_Box[3] = [7, 2];
+    }
+    elif (g_BoxType == 2) {
+        g_Box[0] = [7, 0];
+        g_Box[1] = [7, 1];
+        g_Box[2] = [7, 2];
+        g_Box[3] = [6, 2];
+    }
+    elif (g_BoxType == 3) {
+        g_Box[0] = [6, 0];
+        g_Box[1] = [6, 1];
+        g_Box[2] = [7, 1];
+        g_Box[3] = [7, 2];
+    }
+    elif (g_BoxType == 4) {
+        g_Box[0] = [7, 0];
+        g_Box[1] = [7, 1];
+        g_Box[2] = [6, 1];
+        g_Box[3] = [6, 2];
+    }
+    elif (g_BoxType == 5) {
+        g_Box[0] = [6, 0];
+        g_Box[1] = [6, 1];
+        g_Box[2] = [7, 0];
+        g_Box[3] = [7, 1];
+    }
+    elif (g_BoxType == 6) {
+        g_Box[0] = [6, 0];
+        g_Box[1] = [7, 0];
+        g_Box[2] = [8, 0];
+        g_Box[3] = [9, 0];
+    }
+    
+    i = 0;
+    while (i < 4) {
+        x = g_Box[i][0];
+        y = g_Box[i][1];
+        if (g_Board[y][x]) {
+            ret = WIN:MessageBox(g_hWnd, "Game Over!\nRestart?", "Tetris", WIN:MB_YESNO);
+            if (ret == WIN:IDYES) {
+                NewGame();
+                break;
+            }
+            else
+                WIN:PostMessage(g_hWnd, WIN:WM_DESTROY, 0, 0);
+        }
+        
+        i += 1;
+    }
+}
+                
+def GameInit() {
+    println("Initialize game...");
+    
+    g_hWnd = win32:CreateWindow(100, 100, SCREEN_WIDTH, SCREEN_HEIGHT, "Tetris");
+    g_MainDC = WIN:GetDC(g_hWnd);
+    
+    g_BackBufferDC = WIN:CreateCompatibleDC(g_MainDC);
+    g_BackBuffer = WIN:CreateCompatibleBitmap(g_MainDC, SCREEN_WIDTH, SCREEN_HEIGHT);
+    g_BlueBrush = WIN:CreateSolidBrush(WIN:RGB(0, 0, 255));
+    g_BlackBrush = WIN:CreateSolidBrush(WIN:RGB(30, 30, 30));
+    g_WhiteBrush = WIN:CreateSolidBrush(WIN:RGB(255, 255, 255));
+    g_RedBrush = WIN:CreateSolidBrush(WIN:RGB(255, 0, 0));
+    g_XBrush = WIN:CreateSolidBrush(WIN:RGB(0, 0, 128));
+    
+    g_NormalFont = WIN:CreateFont(12, 0, 0, 0, 400, 0, 0, 0, WIN:GB2312_CHARSET, WIN:OUT_DEFAULT_PRECIS, WIN:CLIP_DEFAULT_PRECIS, WIN:ANTIALIASED_QUALITY, WIN:DEFAULT_PITCH, "Arial");
+    g_BigFont = WIN:CreateFont(36, 0, 0, 0, 700, 0, 0, 0, WIN:GB2312_CHARSET, WIN:OUT_DEFAULT_PRECIS, WIN:CLIP_DEFAULT_PRECIS, WIN:ANTIALIASED_QUALITY, WIN:DEFAULT_PITCH, "Arial");
+    
+    WIN:SelectObject(g_BackBufferDC, g_BackBuffer);
+    WIN:SetBkMode(g_BackBufferDC, 1);
+    
+    NewGame();    
+    CreateBox();
+
+    return 1;
+}
+
+def GameDraw() {
+    win32:FillRect(g_BackBufferDC, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, g_BlueBrush);
+    win32:FillRect(g_BackBufferDC, 5, 5, SCREEN_WIDTH - 5, 45, g_XBrush);
+
+    y = 0;
+    StartX = 5;
+    StartY = 50;
+    win32:FillRect(g_BackBufferDC, StartX, StartY, StartX + g_BoardWidth * 20, StartY + g_BoardHeight * 20, g_BlackBrush);
+    while (y < g_BoardHeight) {        
+        x = 0;
+      
+        while (x < g_BoardWidth) {
+            if (g_Board[y][x])
+                win32:FillRect(g_BackBufferDC, StartX + 20 * x, StartY + 20 * y, StartX + 20 * x + 19, StartY + 20 * y + 19, g_WhiteBrush);
+                
+            x += 1;
+        }
+     
+        y += 1;
+    }
+    
+    i = 0;
+    while (i < 4) {
+        x = g_Box[i][0];
+        y = g_Box[i][1];
+        win32:FillRect(g_BackBufferDC, StartX + 20 * x, StartY + 20 * y, StartX + 20 * x + 19, StartY + 20 * y + 19, g_RedBrush);
+        i += 1;
+    }
+    
+    WIN:SelectObject(g_BackBufferDC, g_NormalFont);
+    WIN:SetTextColor(g_BackBufferDC, WIN:RGB(255, 255, 255));
+    WIN:TextOut(g_BackBufferDC, 50, 20, "Tetris Sample   Zeb 2013", 24);
+    
+    if (g_PauseGame == 1) {
+        WIN:SelectObject(g_BackBufferDC, g_BigFont);
+        WIN:SetTextColor(g_BackBufferDC, WIN:RGB(0, 255, 0));
+        WIN:TextOut(g_BackBufferDC, 50, 300, "Game Pause", 10);
+    }
+
+    WIN:BitBlt(g_MainDC, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, g_BackBufferDC, 0, 0, WIN:SRCCOPY);
+}
+
+def MoveLeft() {
+    move = 1;
+    i = 0;
+    while (i < 4) {
+        x = g_Box[i][0] - 1;
+        y = g_Box[i][1];
+        if (x >= 0) {
+            if (g_Board[y][x] == none) {
+                i += 1;
+                continue;
+            }
+        }
+        
+        move = none;
+        break;
+    }
+           
+    if (move) { 
+        i = 0;
+        while (i < 4) {
+            b = g_Box[i];
+            b[0] -= 1;
+            i += 1;
+        }
+    }
+}
+
+def MoveRight() {
+    move = 1;
+    i = 0;
+    while (i < 4) {
+        x = g_Box[i][0] + 1;
+        y = g_Box[i][1];
+        if (x < g_BoardWidth) {
+            if (g_Board[y][x] == none) {
+                i += 1;
+                continue;
+            }
+        }
+    
+        move = none;
+        break;
+    }
+    
+    if (move) {
+        i = 0;
+        while (i < 4) {
+            b = g_Box[i];
+            b[0] += 1;
+            i += 1;
+        }
+    }
+}
+
+def Rotation() {
+    boxNew = [[0, 0], [0, 0], [0, 0], [0, 0]];
+    
+    boxNew[0][0] = g_Box[0][0] + g_RotX[g_BoxType][g_BoxState][0];
+    boxNew[1][0] = g_Box[1][0] + g_RotX[g_BoxType][g_BoxState][1];
+    boxNew[2][0] = g_Box[2][0] + g_RotX[g_BoxType][g_BoxState][2];
+    boxNew[3][0] = g_Box[3][0] + g_RotX[g_BoxType][g_BoxState][3];
+
+    boxNew[0][1] = g_Box[0][1] + g_RotY[g_BoxType][g_BoxState][0];
+    boxNew[1][1] = g_Box[1][1] + g_RotY[g_BoxType][g_BoxState][1];
+    boxNew[2][1] = g_Box[2][1] + g_RotY[g_BoxType][g_BoxState][2];
+    boxNew[3][1] = g_Box[3][1] + g_RotY[g_BoxType][g_BoxState][3];
+
+    i = 0;
+    while (i < 4) {
+        x = boxNew[i][0];
+        y = boxNew[i][1];
+
+        if ((x < 0) || (x >= g_BoardWidth))
+            break;
+        if ((y < 0) || (y >= g_BoardHeight))
+            break;
+        if (g_Board[y][x])
+            break;
+            
+        i += 1;
+    }
+
+    if (i == 4) {
+        g_Box = boxNew;
+        g_BoxState += 1;
+        if (g_BoxState > 3)
+            g_BoxState = 0;
+    }
+}
+
+def MoveDown() {
+    move = 1;
+    i = 0;
+    while (i < 4) {
+        x = g_Box[i][0];
+        y = g_Box[i][1] + 1;
+        if (y < g_BoardHeight) {
+            if (g_Board[y][x] == none) {
+                i += 1;
+                continue;
+            }
+        }
+            
+        move = none;
+        break;
+    }
+
+    if (move) {
+        i = 0;
+        while (i < 4) {
+            b = g_Box[i];
+            b[1] += 1;
+            i += 1;
+        }
+    }
+    else {        
+        i = 0;
+        while (i < 4) {
+            x = g_Box[i][0];
+            y = g_Box[i][1];
+            
+            if ((x >= 0) && (x < g_BoardWidth) && (y >= 0) && (y < g_BoardHeight))
+                g_Board[y][x] = 1;
+            
+            i += 1;
+        }
+        
+        CheckFull();
+        CreateBox();
+    }
+}
+
+g_LastUpdate = tick();
+g_LastMove = tick();
+
+g_KeyboardState = { WIN:VK_SPACE : 0, WIN:VK_UP : 0 };
+
+def ProcessInput() {
+    Now = tick();
+    if (Now - g_LastMove < 60)
+        return;
+
+    if (WIN:GetAsyncKeyState(WIN:VK_LEFT) != 0) {
+        MoveLeft();
+        g_LastMove = Now;
+    }
+
+    if (WIN:GetAsyncKeyState(WIN:VK_RIGHT) != 0) {
+        MoveRight();
+        g_LastMove = Now;
+    }
+
+    if (WIN:GetAsyncKeyState(WIN:VK_DOWN) != 0) {
+        MoveDown();
+        g_LastMove = Now;
+        g_LastUpdate = Now;
+    }
+
+    if (WIN:GetAsyncKeyState(WIN:VK_UP) != 0) {
+        if (g_KeyboardState[WIN:VK_UP] == 0)
+            Rotation();
+        g_KeyboardState[WIN:VK_UP] = 1;
+    }
+    else {
+        g_KeyboardState[WIN:VK_UP] = 0;
+    }
+
+    if (WIN:GetAsyncKeyState(WIN:VK_SPACE) != 0) {
+        if (g_KeyboardState[WIN:VK_SPACE] == 0)
+            Rotation();
+        g_KeyboardState[WIN:VK_SPACE] = 1;
+    }
+    else {
+        g_KeyboardState[WIN:VK_SPACE] = 0;
+    }
+}
+
+
+
+def UpdateFrame() {
+    Now = tick();
+    if ((Now - g_LastUpdate) > g_Speed) {
+        g_LastUpdate = Now;
+        MoveDown();
+    }
+}
+
+def GameLoop() {
+    println("Game start...");
+    LastCount = tick();
+    while (win32:ProcessMessage()) {
+        ProcessInput();
+        if (g_PauseGame == 0)
+            UpdateFrame();
+                    
+        if ((tick() - LastCount) > 25) {
+            GameDraw();
+            LastCount = tick();
+        }
+
+        sleep(1);
+        continue;
+    }
+}
+
+def GameShut() {
+    println("Game shut...");
+    WIN:DeleteObject(g_BackBuffer);
+    WIN:DeleteObject(g_BlackBrush);
+    WIN:DeleteObject(g_BlueBrush);
+    WIN:DeleteObject(g_WhiteBrush);
+    WIN:DeleteObject(g_RedBrush);
+    WIN:DeleteObject(g_XBrush);
+    WIN:DeleteObject(g_NormalFont);
+    WIN:DeleteObject(g_BigFont);
+    WIN:DeleteDC(g_BackBufferDC);
+}
+
+if GameInit() {
+    GameLoop();
+}
+
+GameShut();

@@ -1,0 +1,7 @@
+lua和matrix采用vc2008 /O2 /Ob2 /Oi /Ot /GL编译
+python使用2.7.2官方发布版本
+lua: 1048ms 1062ms 1060ms 1112ms 1100ms
+python: 900ms 895ms 898ms 892ms 902ms
+matrix: 416ms 417ms 417ms 418ms 439ms
+
+

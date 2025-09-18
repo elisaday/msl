@@ -1,0 +1,29 @@
+num = 8;
+count = 0;
+
+def search(a, s) {
+    a[s] = 0;
+    while (a[s] < num) {
+        ok = 1;
+        x = 0;
+        while x < s {
+            if (a[x] == a[s] || (abs(a[x] - a[s]) == (s - x)))
+                ok = none;
+            x += 1;
+        }
+
+        if (ok) {
+            if (s == num - 1)
+                count += 1;   
+            else
+                search(a, s + 1);
+        }
+
+        a[s] += 1;
+    }
+}
+
+a = [0, 0, 0, 0, 0, 0, 0, 0];
+t = tick();
+search(a, 0);
+println(tick() - t);
